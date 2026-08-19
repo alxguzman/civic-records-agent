@@ -9,11 +9,20 @@ adding a new city is one subclass, not a new pipeline.
 
 from abc import ABC, abstractmethod
 from datetime import date
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from civic.config import CityConfig
 from civic.models import DocType
+
+if TYPE_CHECKING:
+    from civic.ingest.fetcher import PoliteFetcher
+
+
+class DownloadError(Exception):
+    """An adapter's custom downloader tried and failed for this document."""
 
 
 class DocumentRef(BaseModel):
@@ -52,3 +61,13 @@ class CityAdapter(ABC):
         fetcher's job. Raise rather than guess if the site structure does not
         match what the adapter expects."""
         raise NotImplementedError
+
+    def download(self, ref: DocumentRef, fetcher: "PoliteFetcher") -> Path | None:
+        """Optional custom download for sources the generic fetcher can't handle
+        (e.g. Laserfiche WebLink's multi-step, session-bound PDF export).
+
+        Return the local cache path on success, or ``None`` to defer to the
+        generic fetcher. Raise :class:`DownloadError` if this adapter owns the
+        download but it failed (so the pipeline records a failure instead of
+        falling back to a fetch that would retrieve the wrong bytes)."""
+        return None

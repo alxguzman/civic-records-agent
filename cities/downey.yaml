@@ -4,11 +4,19 @@ agendas_url: https://www.downeyca.org/our-city/departments/city-clerk/agendas-ci
 ingest_since: 2023-01-01
 
 # No calendar block: Downey publishes council agendas through AgendaLink
-# (horizon.agendalink.app), a JS app whose listing API is gated behind a token
+# (horizon.agendalink.app), whose agenda/minutes PDFs are gated behind a token
 # embedded in its client bundle — out of scope under the no-credential-
-# extraction rule (PROJECT_SPEC.md §5). Downey's Laserfiche WebLink
-# (lf.downeyca.org, repo "Downey") is publicly reachable and is the planned
-# discovery source for a follow-up iteration.
+# extraction rule (PROJECT_SPEC.md §5).
+#
+# Instead, agendas and minutes come from Downey's public Laserfiche WebLink
+# repository, which needs no credentials. The adapter walks
+# "Agendas & Reports" (folder id 12) -> {year} -> {meeting} and ingests the
+# agenda and approved-minutes documents from each meeting packet. Folder id
+# verified 2026-08-19.
+weblink:
+  base_url: https://lf.downeyca.org/WebLink
+  repo: Downey
+  agendas_folder_id: 12
 
 # Adopted budget PDFs from Finance > City Budgets, verified 2026-08-18.
 # FY 2024-25 and later exist only as a ClearGov digital budget book

@@ -12,7 +12,7 @@ from datetime import datetime
 import structlog
 
 from civic.config import CityConfig
-from civic.ingest.base import DocumentRef
+from civic.ingest.base import DocumentRef, DownloadError
 from civic.ingest.fetcher import PoliteFetcher, RobotsDisallowed
 from civic import db
 from civic.models import Document
@@ -24,6 +24,12 @@ def build_adapter(config: CityConfig, fetcher: PoliteFetcher):
     """Return the adapter registered for this city slug."""
     from civic.ingest.downey import DowneyAdapter
     from civic.ingest.el_segundo import ElSegundoAdapter
+
+    # Downey uses its public Laserfiche WebLink repo when configured; otherwise
+    # the CivicEngage path (budgets only, in practice).
+    if config.slug == "downey" and config.weblink is not None:
+        from civic.ingest.weblink import WebLinkAdapter
+        return WebLinkAdapter(config)
 
     registry = {"downey": DowneyAdapter, "el_segundo": ElSegundoAdapter}
     try:
@@ -58,22 +64,32 @@ def run_ingest(
 
     tally = {"discovered": len(refs), "fetched": 0, "skipped": 0, "failed": 0}
     for ref in refs:
+        # Let the adapter download if it owns a custom flow (WebLink); otherwise
+        # use the generic polite fetcher.
         try:
-            result = fetcher.fetch(ref.url, ref.city)
-        except RobotsDisallowed:
-            tally["skipped"] += 1
-            continue
-        if result.local_path is None:
-            log.warning("ingest.fetch_failed", url=ref.url, status=result.status)
+            path = adapter.download(ref, fetcher)
+        except DownloadError as exc:
+            log.warning("ingest.download_failed", url=ref.url, error=str(exc))
             tally["failed"] += 1
             continue
+        if path is None:
+            try:
+                result = fetcher.fetch(ref.url, ref.city)
+            except RobotsDisallowed:
+                tally["skipped"] += 1
+                continue
+            if result.local_path is None:
+                log.warning("ingest.fetch_failed", url=ref.url, status=result.status)
+                tally["failed"] += 1
+                continue
+            path = result.local_path
 
-        content = result.local_path.read_bytes()
+        content = path.read_bytes()
         doc = Document(
             id=_doc_id(ref.url),
             city=ref.city,
             url=ref.url,
-            local_path=str(result.local_path),
+            local_path=str(path),
             title=ref.title,
             doc_type=ref.doc_type,
             meeting_date=ref.meeting_date,

@@ -16,6 +16,7 @@ amendment):
 
 import hashlib
 import random
+import ssl
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,8 +25,22 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 import structlog
+import truststore
 
 log = structlog.get_logger()
+
+
+def make_client(**kwargs) -> httpx.Client:
+    """An httpx client that trusts the OS certificate store.
+
+    Some municipal document hosts (e.g. Downey's Laserfiche server) present an
+    incomplete chain that certifi rejects but Windows/macOS trust; truststore
+    bridges to the OS store so those hosts verify normally.
+    """
+    ctx = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    kwargs.setdefault("follow_redirects", True)
+    kwargs.setdefault("timeout", 60.0)
+    return httpx.Client(verify=ctx, **kwargs)
 
 # A plain project UA is tried first; if blocked, a browser-shaped UA that still
 # carries the project token. The email is sent separately in a From header so
@@ -76,7 +91,7 @@ class PoliteFetcher:
         self.contact_email = contact_email
         self.min_interval = min_interval
         self.max_retries = max_retries
-        self._client = client or httpx.Client(follow_redirects=True, timeout=60.0)
+        self._client = client or make_client()
         self._last_request: dict[str, float] = {}       # host -> monotonic time
         self._ua_for_host: dict[str, str] = {}           # host -> working UA
         self._robots: dict[str, RobotFileParser | None] = {}
@@ -130,6 +145,19 @@ class PoliteFetcher:
             time.sleep(backoff)
             backoff *= 2
         return last_status, ""
+
+    def cached(self, url: str, city: str) -> Path | None:
+        """Public cache lookup for adapters that download documents themselves
+        (e.g. the Laserfiche WebLink export flow)."""
+        return self._cached_path(url, city)
+
+    def store(self, url: str, city: str, content: bytes, suffix: str = ".pdf") -> Path:
+        """Write adapter-fetched bytes into the same cache the fetcher uses, so
+        re-runs skip the download exactly like ``fetch`` does."""
+        path = self._cache_path(url, city, suffix)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+        return path
 
     def close(self) -> None:
         self._client.close()

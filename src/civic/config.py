@@ -24,6 +24,19 @@ class CalendarConfig(BaseModel):
     max_pages: int = 40    # safety cap on pagination while walking back in time
 
 
+class WebLinkConfig(BaseModel):
+    """A public Laserfiche WebLink repository (e.g. Downey's lf.downeyca.org).
+
+    Agendas and minutes live in year → meeting-date folder trees; the adapter
+    walks them. Folder ids are stable Laserfiche entry ids, verified once."""
+
+    base_url: str            # e.g. https://lf.downeyca.org/WebLink
+    repo: str                # Laserfiche repository name, e.g. Downey
+    # "Agendas & Reports" folder: year subfolders → per-meeting folders whose
+    # packets hold the agenda and the approved minutes of a prior meeting.
+    agendas_folder_id: int
+
+
 class BudgetRef(BaseModel):
     """A hand-located adopted-budget PDF. The spec calls out that budgets must
     be found separately (they live on Finance pages, not the agenda calendar),
@@ -43,6 +56,7 @@ class CityConfig(BaseModel):
     # Bounded ingestion window: meetings on/after this date (spec Phase 1).
     ingest_since: date
     calendar: CalendarConfig | None = None
+    weblink: WebLinkConfig | None = None
     budgets: list[BudgetRef] = []
 
 

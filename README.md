@@ -14,13 +14,18 @@ with page-level citations.
 
 ## Document-quality findings (Phase 2)
 
-From the current bounded corpus (17 documents, 2,102 pages — full 2023+
-backfill still pending):
+From the current bounded corpus (19 documents, 2,110 pages — a capped
+demonstration set; the full 2023+ backfill runs the same commands without
+`--limit`):
 
 | city | docs | pages | OCR pages | empty after OCR |
 |---|---:|---:|---:|---:|
-| Downey | 2 | 775 | 35 (4.5%) | 0 |
+| Downey | 4 | 783 | 35 (4.5%) | 0 |
 | El Segundo | 15 | 1,327 | 123 (9.3%) | 6 |
+
+Downey's 4 documents are 2 adopted budgets plus the English and Spanish council
+agendas for the 2023-01-10 meeting (via WebLink); El Segundo's 15 are 3 budgets
+plus 12 recent agendas (via CivicEngage).
 
 - A page is sent to OCR (300 dpi render → Tesseract) when pdfplumber yields
   under 50 characters. 171 pages hit that threshold; OCR recovered readable
@@ -46,11 +51,16 @@ Reality diverged from the original spec in ways that shaped the design:
   CivicEngage calendar with inline PDF links — cleanly crawlable (the WAF
   rejects `?query` pagination but accepts the site's own `/-toggle-allpast`
   form, which the adapter uses).
-- **Downey's council agendas live in AgendaLink**, a JS app whose listing API
-  is gated behind a token embedded in its client bundle. Extracting that token
-  is out of scope by policy, so Downey Phase 1 ingests its adopted-budget PDFs
-  only; the city's public Laserfiche WebLink (`lf.downeyca.org`) is the
-  planned follow-up source for agendas.
+- **Downey's council agendas live in AgendaLink**, a JS app whose PDF/minutes
+  endpoints are gated behind a token embedded in its client bundle. Extracting
+  that token is out of scope by policy. Downey agendas and minutes instead come
+  from the city's **public Laserfiche WebLink** archive (`lf.downeyca.org`),
+  which needs no credentials: the adapter walks its `Agendas & Reports / {year}
+  / {meeting}` folder tree and drives WebLink's on-demand PDF export. Two
+  wrinkles are handled rather than worked around — the host's TLS chain needs
+  the OS trust store (via `truststore`), and anonymous access draws on a small
+  shared license pool that intermittently returns "session limit" 500s, which
+  are retried with backoff.
 - **Downey stopped publishing budget PDFs after FY 2023-24** — FY 2024-25
   onward exists only as a ClearGov digital budget book, so fiscal-year
   comparisons against Downey currently end at FY2024.

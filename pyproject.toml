@@ -16,6 +16,7 @@ dependencies = [
     "pdfplumber>=0.11",
     "pytesseract>=0.3.10",
     "pdf2image>=1.17",
+    "truststore>=0.10.4",
 ]
 
 # Dependencies are added in the phase that first imports them, so the lockfile
