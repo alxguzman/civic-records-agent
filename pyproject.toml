@@ -13,6 +13,9 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "lxml>=5.2",
     "structlog>=24.1",
+    "pdfplumber>=0.11",
+    "pytesseract>=0.3.10",
+    "pdf2image>=1.17",
 ]
 
 # Dependencies are added in the phase that first imports them, so the lockfile

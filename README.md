@@ -5,11 +5,32 @@ adopted budgets from **Downey, CA** and **El Segundo, CA**, indexes them for hyb
 retrieval, and exposes a hand-written agent that answers multi-step research questions
 with page-level citations.
 
-> **Status: Phase 1 (ingestion).** `civic ingest` works: polite fetcher (UA
+> **Status: Phase 2 (extraction).** `civic ingest` (polite fetcher: UA
 > escalation, robots.txt, 2.5 s/host rate limit, cache-by-URL-hash, backoff,
-> structured JSON logging) plus config-driven city adapters. Extraction,
-> indexing, retrieval, and evals land in later phases per
-> [PROJECT_SPEC.md](PROJECT_SPEC.md). No eval numbers exist yet — none are reported.
+> structured JSON logging; config-driven city adapters) and `civic extract`
+> (per-page text via pdfplumber, Tesseract OCR fallback, quality report) both
+> work. Indexing, retrieval, and evals land in later phases. No eval numbers
+> exist yet — none are reported.
+
+## Document-quality findings (Phase 2)
+
+From the current bounded corpus (17 documents, 2,102 pages — full 2023+
+backfill still pending):
+
+| city | docs | pages | OCR pages | empty after OCR |
+|---|---:|---:|---:|---:|
+| Downey | 2 | 775 | 35 (4.5%) | 0 |
+| El Segundo | 15 | 1,327 | 123 (9.3%) | 6 |
+
+- A page is sent to OCR (300 dpi render → Tesseract) when pdfplumber yields
+  under 50 characters. 171 pages hit that threshold; OCR recovered readable
+  text on 158 of them and 6 stayed empty (genuine blanks or pure images).
+- Both cities' **adopted budget books mix born-digital and scanned pages** —
+  cover sheets, org charts, and signature pages are scans even in otherwise
+  digital PDFs, so an OCR fallback is mandatory for budget documents.
+- One El Segundo Planning Commission packet was **57 pages of scanned
+  attachments** — commission packets, not council agendas, are where scan
+  quality problems concentrate.
 
 ## Data-access findings (Phase 1)
 
@@ -44,6 +65,14 @@ cp .env.example .env   # fill in values; not needed until Phase 4
 uv run civic --help
 uv run pytest
 ```
+
+For the OCR fallback in `civic extract`, install
+[Tesseract](https://github.com/UB-Mannheim/tesseract/wiki) and
+[Poppler](https://github.com/oschwartz10612/poppler-windows) and ensure both
+are on PATH (on Windows: `winget install UB-Mannheim.TesseractOCR
+oschwartz10612.Poppler`; the default `C:\Program Files\Tesseract-OCR` install
+location is auto-detected). Without them, extraction still runs — scanned
+pages are simply reported instead of OCR'd.
 
 ## Layout
 
