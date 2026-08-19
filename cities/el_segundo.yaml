@@ -1,0 +1,26 @@
+slug: el_segundo
+name: El Segundo, CA
+agendas_url: https://www.elsegundo.gov/government/departments/city-clerk/agendas-minutes
+ingest_since: 2023-01-01
+
+# CivicEngage calendar listing: one server-rendered page per ~2 weeks of
+# meetings, agenda/minutes PDFs linked inline. Walked newest→oldest until the
+# ingest_since cutoff. (Structure verified 2026-08-18.)
+calendar:
+  base_url: https://www.elsegundo.gov
+  listing_path: /government/departments/city-clerk/agendas-minutes
+  max_pages: 40
+
+# Adopted Operating & Capital Improvement Budget PDFs, hand-located on the
+# Finance > Financial Reports page (accordion "Adopted Operating & Capital
+# Improvement Budget"), verified 2026-08-18.
+budgets:
+  - url: https://www.elsegundo.gov/home/showpublisheddocument/6102/638271905542270000
+    title: El Segundo Adopted Operating & Capital Improvement Budget FY 2022-23
+    fiscal_year: 2023
+  - url: https://www.elsegundo.gov/home/showpublisheddocument/7328/638271905307700000
+    title: El Segundo Adopted Operating & Capital Improvement Budget FY 2023-24
+    fiscal_year: 2024
+  - url: https://www.elsegundo.gov/home/showpublisheddocument/9085/638568270149200000
+    title: El Segundo Adopted Operating & Capital Improvement Budget FY 2024-25
+    fiscal_year: 2025

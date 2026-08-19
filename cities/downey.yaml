@@ -1,0 +1,22 @@
+slug: downey
+name: Downey, CA
+agendas_url: https://www.downeyca.org/our-city/departments/city-clerk/agendas-city-documents
+ingest_since: 2023-01-01
+
+# No calendar block: Downey publishes council agendas through AgendaLink
+# (horizon.agendalink.app), a JS app whose listing API is gated behind a token
+# embedded in its client bundle — out of scope under the no-credential-
+# extraction rule (PROJECT_SPEC.md §5). Downey's Laserfiche WebLink
+# (lf.downeyca.org, repo "Downey") is publicly reachable and is the planned
+# discovery source for a follow-up iteration.
+
+# Adopted budget PDFs from Finance > City Budgets, verified 2026-08-18.
+# FY 2024-25 and later exist only as a ClearGov digital budget book
+# (city-downey-ca-budget-book.cleargov.com) with no PDF on the city site.
+budgets:
+  - url: https://www.downeyca.org/home/showpublisheddocument/6958/637994467143730000
+    title: Downey City Adopted Budget FY 2022-23
+    fiscal_year: 2023
+  - url: https://www.downeyca.org/home/showpublisheddocument/7847/638336614378670000
+    title: Downey City Adopted Budget FY 2023-24
+    fiscal_year: 2024
