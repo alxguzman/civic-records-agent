@@ -14,18 +14,21 @@ with page-level citations.
 
 ## Document-quality findings (Phase 2)
 
-From the current bounded corpus (19 documents, 2,110 pages — a capped
-demonstration set; the full 2023+ backfill runs the same commands without
-`--limit`):
+From the current corpus (55 documents, 2,301 pages — a bounded set from 2023
+onward; the full backfill runs the same commands without `--limit`):
 
 | city | docs | pages | OCR pages | empty after OCR |
 |---|---:|---:|---:|---:|
-| Downey | 4 | 783 | 35 (4.5%) | 0 |
+| Downey | 40 | 974 | 35 (3.6%) | 0 |
 | El Segundo | 15 | 1,327 | 123 (9.3%) | 6 |
 
-Downey's 4 documents are 2 adopted budgets plus the English and Spanish council
-agendas for the 2023-01-10 meeting (via WebLink); El Segundo's 15 are 3 budgets
-plus 12 recent agendas (via CivicEngage).
+Downey's 40 documents are 19 council agendas, 19 sets of minutes, and 2 adopted
+budgets (agendas/minutes via WebLink, budgets via the Finance page); El
+Segundo's 15 are 12 recent agendas plus 3 budgets (via CivicEngage). The two
+cities' scan profiles differ sharply: Downey's council agendas and minutes are
+born-digital (no OCR), and its only scanned pages are inside a budget book,
+whereas El Segundo's commission packets carry many scanned attachments — the
+9.3% vs 3.6% OCR rate is that difference.
 
 - A page is sent to OCR (300 dpi render → Tesseract) when pdfplumber yields
   under 50 characters. 171 pages hit that threshold; OCR recovered readable
