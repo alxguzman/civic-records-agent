@@ -83,7 +83,16 @@ class WebLinkClient:
         backoff = 4.0
         for attempt in range(1, self.max_retries + 1):
             self._pace()
-            resp = self._client.post(url, json=body)
+            try:
+                resp = self._client.post(url, json=body)
+            except httpx.HTTPError as exc:
+                # The host resets connections under sustained load (WinError
+                # 10054); treat that like a session-limit hiccup and retry.
+                log.info("weblink.network_retry", folder=folder_id, attempt=attempt,
+                         error=str(exc))
+                time.sleep(backoff)
+                backoff *= 1.7
+                continue
             if resp.status_code == 200:
                 return self._parse(resp.json())
             if resp.status_code == 500 and _SESSION_LIMIT in resp.text:
@@ -124,8 +133,13 @@ class WebLinkClient:
     def _warm_session(self, entry_id: int, attempts: int = 15) -> None:
         for attempt in range(1, attempts + 1):
             self._pace()
-            r = self._client.get(f"{self.base_url}/DocView.aspx",
-                                 params={"id": entry_id, "dbid": 0, "repo": self.repo})
+            try:
+                r = self._client.get(f"{self.base_url}/DocView.aspx",
+                                     params={"id": entry_id, "dbid": 0, "repo": self.repo})
+            except httpx.HTTPError as exc:
+                log.info("weblink.network_retry", phase="warm", attempt=attempt, error=str(exc))
+                time.sleep(min(4.0 * attempt, 20.0))
+                continue
             if _SESSION_LIMIT not in r.text:
                 return
             log.info("weblink.session_limit", phase="warm", attempt=attempt)
@@ -143,7 +157,17 @@ class WebLinkClient:
         return None
 
     def export_pdf(self, entry_id: int) -> bytes:
-        """Return the generated PDF bytes for a document, or raise SessionLimit."""
+        """Return the generated PDF bytes for a document, or raise SessionLimit.
+
+        Network resets mid-export raise SessionLimit too, so the caller records
+        a single failed document rather than crashing the whole run.
+        """
+        try:
+            return self._export_pdf(entry_id)
+        except httpx.HTTPError as exc:
+            raise SessionLimit(f"network error during export: {exc}") from exc
+
+    def _export_pdf(self, entry_id: int) -> bytes:
         self._warm_session(entry_id)
         pages = self._page_count(entry_id)
         page_range = f"1 - {pages}" if pages else "1 - 9999"
@@ -205,16 +229,30 @@ def _classify(doc_name: str) -> str | None:
 def discover_weblink(client: WebLinkClient, agendas_folder_id: int, since: date) -> list[DocumentRef]:
     """Walk the Agendas tree and return agenda/minutes refs on/after ``since``."""
     refs: list[DocumentRef] = []
+    skipped = 0
     for year_folder in client.list_folder(agendas_folder_id):
         if not (year_folder.is_folder and _YEAR_RE.match(year_folder.name)):
             continue
         if int(year_folder.name) < since.year:
             continue
-        for meeting in client.list_folder(year_folder.entry_id):
+        try:
+            meetings = client.list_folder(year_folder.entry_id)
+        except SessionLimit:
+            log.warning("weblink.skip_year", year=year_folder.name)
+            skipped += 1
+            continue
+        for meeting in meetings:
             mdate = _meeting_date(meeting.name)
             if not meeting.is_folder or mdate is None or mdate < since:
                 continue
-            for doc in client.list_folder(meeting.entry_id):
+            try:
+                docs = client.list_folder(meeting.entry_id)
+            except SessionLimit:
+                # One unreachable meeting folder shouldn't abort a long backfill.
+                log.warning("weblink.skip_meeting", meeting=meeting.name)
+                skipped += 1
+                continue
+            for doc in docs:
                 if doc.is_folder:
                     continue
                 doc_type = _classify(doc.name)
@@ -229,7 +267,7 @@ def discover_weblink(client: WebLinkClient, agendas_folder_id: int, since: date)
                         meeting_date=_meeting_date(doc.name) or mdate,
                     )
                 )
-    log.info("weblink.discovered", found=len(refs))
+    log.info("weblink.discovered", found=len(refs), skipped_folders=skipped)
     return refs
 
 

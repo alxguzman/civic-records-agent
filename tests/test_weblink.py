@@ -2,7 +2,11 @@ import json
 from datetime import date
 from pathlib import Path
 
+import httpx
+import pytest
+
 from civic.ingest.weblink import (
+    SessionLimit,
     WebLinkClient,
     _classify,
     _entry_id_from_url,
@@ -77,3 +81,34 @@ def test_discover_weblink_walks_tree_and_filters() -> None:
 def test_discover_weblink_respects_since_year() -> None:
     refs = discover_weblink(_FakeClient(), agendas_folder_id=12, since=date(2099, 1, 1))
     assert refs == []  # 2026 < 2099 → nothing in window
+
+
+def test_list_folder_retries_connection_reset(monkeypatch) -> None:
+    """A dropped connection (WinError 10054) is retried, not fatal."""
+    monkeypatch.setattr("civic.ingest.weblink.time.sleep", lambda *_: None)
+    payload = json.loads((FIX / "weblink_meeting.json").read_text(encoding="utf-8-sig"))
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise httpx.ReadError("forcibly closed")
+        return httpx.Response(200, json=payload)
+
+    client = WebLinkClient("https://lf.test/WebLink", "Downey", min_interval=0,
+                           client=httpx.Client(transport=httpx.MockTransport(handler)))
+    entries = client.list_folder(999)
+    assert calls["n"] == 2  # first reset, second succeeds
+    assert entries and all(not e.is_folder for e in entries)
+
+
+def test_list_folder_gives_up_after_persistent_failure(monkeypatch) -> None:
+    monkeypatch.setattr("civic.ingest.weblink.time.sleep", lambda *_: None)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("down")
+
+    client = WebLinkClient("https://lf.test/WebLink", "Downey", min_interval=0, max_retries=3,
+                           client=httpx.Client(transport=httpx.MockTransport(handler)))
+    with pytest.raises(SessionLimit):
+        client.list_folder(999)
